@@ -1,4 +1,7 @@
+import queue
+import csv
 import cv2
+import time
 import threading
 import tkinter as tk
 from insightface.app import FaceAnalysis
@@ -26,6 +29,11 @@ class FER:
                 draw.text(box.tolist(), emotion)
         return frame_draw
 
+    def infer_emotion(self, frame):
+        faces = self.detection.get(frame)
+        if faces:
+            return self.__get_emotions(frame, faces)
+
     def __get_emotions(self, frame, faces):
         for face in faces:
             box = face.bbox.astype(int)
@@ -42,39 +50,66 @@ class GUI(tk.Tk):
         self.container = tk.Frame(self)
         self.container.pack(side="top", fill="both", expand=True)
         self.panel = None
-        self.record_button = tk.Button(self, text="Start Recording", command=app.record_emotions)
+        self.record_button = tk.Button(self, text="Start Recording", command=app.start_recording)
         self.record_button.pack(side="bottom", fill="both", pady=10, padx=10)
 
-    def update_frame(self, frame):
-        image = ImageTk.PhotoImage(frame)
-        if self.panel is None:
-            self.panel = tk.Label(self.container, image=image)
-            self.panel.image = image
-            self.panel.pack(side="top")
-        else:
-            self.panel.configure(image=image)
-            self.panel.image = image
+    def update_frame(self, img_queue):
+        if not img_queue.empty():
+            image = ImageTk.PhotoImage(img_queue.get())
+            if self.panel is None:
+                self.panel = tk.Label(self.container, image=image)
+                self.panel.image = image
+                self.panel.pack(side="top")
+            else:
+                self.panel.configure(image=image)
+                self.panel.image = image
+        self.after(1, self.update_frame, img_queue)
 
 
 class Tech4compFER:
     def __init__(self, vc):
+        self.img_queue = queue.Queue()
+        self.recording = False
         self.gui = GUI(self)
         self.fer = FER()
         self.vc = vc
-        self.show_gui = True
-        self.gui_thread = threading.Thread(target=self.draw_gui)
-        self.gui_thread.start()
+        self.worker_thread = threading.Thread(target=self.update_frames)
+        self.worker_thread.start()
+        self.gui.update_frame(self.img_queue)
+        self.gui.protocol("WM_DELETE_WINDOW", self.close_application)
         self.gui.mainloop()
 
-    def draw_gui(self):
-        while self.show_gui:
+    def update_frames(self):
+        while not self.recording:
             _, frame = self.vc.read()
-            self.gui.update_frame(self.fer.visualize(frame))
-        self.gui.withdraw()
+            self.img_queue.put(self.fer.visualize(frame))
         return
 
     def record_emotions(self):
-        self.show_gui = False
+        with open('emotions.csv', 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile, delimiter=',')
+            while self.recording:
+                _, frame = self.vc.read()
+                _, emotion_values = self.fer.infer_emotion(frame)
+                writer.writerow([time.time(), emotion_values])
+            return
+
+    def start_recording(self):
+        self.recording = True
+        self.worker_thread = threading.Thread(target=self.record_emotions)
+        self.worker_thread.start()
+        self.gui.record_button.config(text="Stop Recording", command=self.stop_recording)
+
+    def stop_recording(self):
+        self.recording = False
+        self.worker_thread = threading.Thread(target=self.update_frames)
+        self.worker_thread.start()
+        self.gui.record_button.config(text="Start Recording", command=self.start_recording)
+
+    def close_application(self):
+        self.gui.destroy()
+        self.recording = not self.recording
+        self.worker_thread.join()
 
 
 if __name__ == '__main__':
