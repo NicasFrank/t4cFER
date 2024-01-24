@@ -7,6 +7,7 @@ import tkinter as tk
 from insightface.app import FaceAnalysis
 from hsemotion_onnx.facial_emotions import HSEmotionRecognizer
 from PIL import Image, ImageDraw, ImageTk
+from datetime import datetime
 
 
 class FER:
@@ -44,13 +45,13 @@ class FER:
 
 
 class GUI(tk.Tk):
-    def __init__(self, app):
+    def __init__(self, start_recording):
         tk.Tk.__init__(self)
         self.wm_title("Tech4compFER")
         self.container = tk.Frame(self)
         self.container.pack(side="top", fill="both", expand=True)
         self.panel = None
-        self.record_button = tk.Button(self, text="Start Recording", command=app.start_recording)
+        self.record_button = tk.Button(self, text="Start Recording", command=start_recording)
         self.record_button.pack(side="bottom", fill="both", pady=10, padx=10)
 
     def update_frame(self, img_queue):
@@ -63,14 +64,14 @@ class GUI(tk.Tk):
             else:
                 self.panel.configure(image=image)
                 self.panel.image = image
-        self.after(1, self.update_frame, img_queue)
+        self.after(5, self.update_frame, img_queue)
 
 
 class Tech4compFER:
     def __init__(self, vc):
         self.img_queue = queue.Queue()
         self.recording = False
-        self.gui = GUI(self)
+        self.gui = GUI(self.start_recording)
         self.fer = FER()
         self.vc = vc
         self.worker_thread = threading.Thread(target=self.update_frames)
@@ -86,12 +87,12 @@ class Tech4compFER:
         return
 
     def record_emotions(self):
-        with open('emotions.csv', 'w', newline='') as csvfile:
+        with open(datetime.now().strftime("%d_%m_%Y %Hh%Mm%Ss"), 'w', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             while self.recording:
                 _, frame = self.vc.read()
                 _, emotion_values = self.fer.infer_emotion(frame)
-                writer.writerow([time.time(), emotion_values])
+                writer.writerow([time.time()] + [*emotion_values])
             return
 
     def start_recording(self):
