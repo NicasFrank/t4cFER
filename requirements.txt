@@ -3,3 +3,4 @@ pystray==0.19.5
 opencv-python==4.9.0.80
 onnxruntime-gpu==1.16.3
 insightface==0.7.3
+hsemotion-onnx==0.3.1
