@@ -87,12 +87,15 @@ class Tech4compFER:
         return
 
     def record_emotions(self):
-        with open(datetime.now().strftime("%d_%m_%Y %Hh%Mm%Ss"), 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile, delimiter=',')
+        with open(datetime.now().strftime("%d_%m_%Y %Hh%Mm%Ss")+".csv", 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile, delimiter=';')
             while self.recording:
+                start_time = time.time()
                 _, frame = self.vc.read()
                 _, emotion_values = self.fer.infer_emotion(frame)
                 writer.writerow([time.time()] + [*emotion_values])
+                elapsed_time = time.time() - start_time
+                time.sleep(max(float(0), 0.1 - elapsed_time))
             return
 
     def start_recording(self):
