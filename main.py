@@ -45,18 +45,24 @@ class FER:
 
 
 class GUI(tk.Tk):
-    def __init__(self, start_recording):
+    def __init__(self, vc):
         tk.Tk.__init__(self)
+        self.img_queue = queue.Queue()
+        self.logic = Tech4compFER(vc, self.img_queue)
+
         self.wm_title("Tech4compFER")
         self.container = tk.Frame(self)
         self.container.pack(side="top", fill="both", expand=True)
         self.panel = None
-        self.record_button = tk.Button(self, text="Start Recording", command=start_recording)
+        self.record_button = tk.Button(self, text="Start Recording", command=self.record_pressed)
         self.record_button.pack(side="bottom", fill="both", pady=10, padx=10)
+        self.protocol("WM_DELETE_WINDOW", self.close_application)
 
-    def update_frame(self, img_queue):
-        if not img_queue.empty():
-            image = ImageTk.PhotoImage(img_queue.get())
+        self.update_frame()
+
+    def update_frame(self):
+        if not self.img_queue.empty():
+            image = ImageTk.PhotoImage(self.img_queue.get())
             if self.panel is None:
                 self.panel = tk.Label(self.container, image=image)
                 self.panel.image = image
@@ -64,21 +70,30 @@ class GUI(tk.Tk):
             else:
                 self.panel.configure(image=image)
                 self.panel.image = image
-        self.after(5, self.update_frame, img_queue)
+        self.after(5, self.update_frame)
+
+    def record_pressed(self):
+        if self.logic.recording:
+            self.record_button.config(text="Start Recording")
+            self.logic.stop_recording()
+        else:
+            self.record_button.config(text="Stop Recording")
+            self.logic.start_recording()
+
+    def close_application(self):
+        self.logic.recording = not self.logic.recording
+        self.logic.worker_thread.join()
+        self.destroy()
 
 
 class Tech4compFER:
-    def __init__(self, vc):
-        self.img_queue = queue.Queue()
+    def __init__(self, vc, img_queue):
+        self.img_queue = img_queue
         self.recording = False
-        self.gui = GUI(self.start_recording)
         self.fer = FER()
         self.vc = vc
         self.worker_thread = threading.Thread(target=self.update_frames)
         self.worker_thread.start()
-        self.gui.update_frame(self.img_queue)
-        self.gui.protocol("WM_DELETE_WINDOW", self.close_application)
-        self.gui.mainloop()
 
     def update_frames(self):
         while not self.recording:
@@ -87,7 +102,7 @@ class Tech4compFER:
         return
 
     def record_emotions(self):
-        with open(datetime.now().strftime("%d_%m_%Y %Hh%Mm%Ss")+".csv", 'w', newline='') as csvfile:
+        with open(datetime.now().strftime("%d_%m_%Y %Hh%Mm%Ss") + ".csv", 'w', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=';')
             while self.recording:
                 start_time = time.time()
@@ -100,25 +115,20 @@ class Tech4compFER:
 
     def start_recording(self):
         self.recording = True
+        self.worker_thread.join()
         self.worker_thread = threading.Thread(target=self.record_emotions)
         self.worker_thread.start()
-        self.gui.record_button.config(text="Stop Recording", command=self.stop_recording)
 
     def stop_recording(self):
         self.recording = False
+        self.worker_thread.join()
         self.worker_thread = threading.Thread(target=self.update_frames)
         self.worker_thread.start()
-        self.gui.record_button.config(text="Start Recording", command=self.start_recording)
-
-    def close_application(self):
-        self.gui.destroy()
-        self.recording = not self.recording
-        self.worker_thread.join()
 
 
 if __name__ == '__main__':
     video_capture = cv2.VideoCapture(0)
 
-    Tech4compFER(video_capture)
+    GUI(video_capture).mainloop()
 
     video_capture.release()
