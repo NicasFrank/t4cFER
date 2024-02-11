@@ -34,6 +34,7 @@ class FER:
         faces = self.detection.get(frame)
         if faces:
             return self.__get_emotions(frame, faces)
+        return None, None
 
     def __get_emotions(self, frame, faces):
         for face in faces:
@@ -108,7 +109,8 @@ class Tech4compFER:
                 start_time = time.time()
                 _, frame = self.vc.read()
                 _, emotion_values = self.fer.infer_emotion(frame)
-                writer.writerow([time.time()] + [*emotion_values])
+                if emotion_values is not None:
+                    writer.writerow([time.time()] + [*emotion_values])
                 elapsed_time = time.time() - start_time
                 time.sleep(max(float(0), 0.1 - elapsed_time))
             return
