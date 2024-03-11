@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw, ImageTk
 from datetime import datetime
 
 
-class FER:
+class FERModel:
     def __init__(self, allow_gpu=True):
         provider = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if allow_gpu else ['CPUExecutionProvider']
         self.detection = FaceAnalysis(name='buffalo_sc', allowed_modules=['detection'],
@@ -18,23 +18,11 @@ class FER:
         self.detection.prepare(ctx_id=0, det_size=(640, 640))
         self.classification = HSEmotionRecognizer(model_name='enet_b0_8_best_afew')
 
-    def visualize(self, frame):
-        faces = self.detection.get(frame)
-        frame_draw = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        draw = ImageDraw.Draw(frame_draw)
-        if faces:
-            emotion, _ = self.__get_emotions(frame, faces)
-            for face in faces:
-                box = face.bbox.astype(int)
-                draw.rectangle(box.tolist(), outline=(255, 0, 0), width=6)
-                draw.text(box.tolist(), emotion)
-        return frame_draw
-
     def infer_emotion(self, frame):
         faces = self.detection.get(frame)
         if faces:
             return self.__get_emotions(frame, faces)
-        return None, None
+        return None, None, None
 
     def __get_emotions(self, frame, faces):
         for face in faces:
@@ -42,14 +30,14 @@ class FER:
             x1, y1, x2, y2 = box[0:4]
             face_img = frame[y1:y2, x1:x2, :]
             emotion, scores = self.classification.predict_emotions(face_img, logits=False)
-            return emotion, scores
+            return emotion, scores, box
 
 
-class GUI(tk.Tk):
+class FERView(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
         self.img_queue = queue.Queue()
-        self.logic = Tech4compFER(self.img_queue)
+        self.logic = FERPresenter(self.img_queue)
 
         self.wm_title("Tech4compFER")
         self.container = tk.Frame(self)
@@ -88,11 +76,11 @@ class GUI(tk.Tk):
         self.destroy()
 
 
-class Tech4compFER:
+class FERPresenter:
     def __init__(self, img_queue):
         self.img_queue = img_queue
         self.recording = False
-        self.fer = FER()
+        self.fer = FERModel()
         self.vc = cv2.VideoCapture(0)
         self.worker_thread = threading.Thread(target=self.update_frames)
         self.worker_thread.start()
@@ -100,7 +88,12 @@ class Tech4compFER:
     def update_frames(self):
         while not self.recording:
             _, frame = self.vc.read()
-            self.img_queue.put(self.fer.visualize(frame))
+            frame_draw = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            draw = ImageDraw.Draw(frame_draw)
+            emotion, _, box = self.fer.infer_emotion(frame)
+            draw.rectangle(box.tolist(), outline=(255, 0, 0), width=6)
+            draw.text(box.tolist(), emotion)
+            self.img_queue.put(frame_draw)
         return
 
     def record_emotions(self):
@@ -109,7 +102,7 @@ class Tech4compFER:
             while self.recording:
                 start_time = time.time()
                 _, frame = self.vc.read()
-                _, emotion_values = self.fer.infer_emotion(frame)
+                _, emotion_values, _ = self.fer.infer_emotion(frame)
                 if emotion_values is not None:
                     writer.writerow([time.time()] + [*emotion_values])
                 elapsed_time = time.time() - start_time
@@ -130,6 +123,4 @@ class Tech4compFER:
 
 
 if __name__ == '__main__':
-
-    GUI().mainloop()
-
+    FERView().mainloop()
