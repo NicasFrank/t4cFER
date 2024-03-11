@@ -46,10 +46,10 @@ class FER:
 
 
 class GUI(tk.Tk):
-    def __init__(self, vc):
+    def __init__(self):
         tk.Tk.__init__(self)
         self.img_queue = queue.Queue()
-        self.logic = Tech4compFER(vc, self.img_queue)
+        self.logic = Tech4compFER(self.img_queue)
 
         self.wm_title("Tech4compFER")
         self.container = tk.Frame(self)
@@ -84,15 +84,16 @@ class GUI(tk.Tk):
     def close_application(self):
         self.logic.recording = not self.logic.recording
         self.logic.worker_thread.join()
+        self.logic.vc.release()
         self.destroy()
 
 
 class Tech4compFER:
-    def __init__(self, vc, img_queue):
+    def __init__(self, img_queue):
         self.img_queue = img_queue
         self.recording = False
         self.fer = FER()
-        self.vc = vc
+        self.vc = cv2.VideoCapture(0)
         self.worker_thread = threading.Thread(target=self.update_frames)
         self.worker_thread.start()
 
@@ -129,8 +130,6 @@ class Tech4compFER:
 
 
 if __name__ == '__main__':
-    video_capture = cv2.VideoCapture(0)
 
-    GUI(video_capture).mainloop()
+    GUI().mainloop()
 
-    video_capture.release()
