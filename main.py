@@ -47,9 +47,9 @@ class FERView(tk.Tk):
         self.record_button.pack(side="bottom", fill="both", pady=10, padx=10)
         self.protocol("WM_DELETE_WINDOW", self.close_application)
 
-        self.update_frame()
+        self.load_frame()
 
-    def update_frame(self):
+    def load_frame(self):
         if not self.img_queue.empty():
             image = ImageTk.PhotoImage(self.img_queue.get())
             if self.panel is None:
@@ -59,7 +59,7 @@ class FERView(tk.Tk):
             else:
                 self.panel.configure(image=image)
                 self.panel.image = image
-        self.after(5, self.update_frame)
+        self.after(5, self.load_frame)
 
     def record_pressed(self):
         if self.logic.recording:
@@ -82,17 +82,20 @@ class FERPresenter:
         self.recording = False
         self.fer = FERModel()
         self.vc = cv2.VideoCapture(0)
-        self.worker_thread = threading.Thread(target=self.update_frames)
+        self.worker_thread = threading.Thread(target=self.update_frame)
         self.worker_thread.start()
 
-    def update_frames(self):
+    def update_frame(self):
         while not self.recording:
+            start_time = time.time()
             _, frame = self.vc.read()
             frame_draw = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             draw = ImageDraw.Draw(frame_draw)
             emotion, _, box = self.fer.infer_emotion(frame)
             draw.rectangle(box.tolist(), outline=(255, 0, 0), width=6)
             draw.text(box.tolist(), emotion)
+            fps = 1.0 / (time.time() - start_time)
+            draw.text((0, 0), str(int(fps)))
             self.img_queue.put(frame_draw)
         return
 
@@ -118,7 +121,7 @@ class FERPresenter:
     def stop_recording(self):
         self.recording = False
         self.worker_thread.join()
-        self.worker_thread = threading.Thread(target=self.update_frames)
+        self.worker_thread = threading.Thread(target=self.update_frame)
         self.worker_thread.start()
 
 
