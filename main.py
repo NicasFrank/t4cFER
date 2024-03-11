@@ -15,7 +15,7 @@ class FERModel:
         provider = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if allow_gpu else ['CPUExecutionProvider']
         self.detection = FaceAnalysis(name='buffalo_sc', allowed_modules=['detection'],
                                       providers=provider)
-        self.detection.prepare(ctx_id=0, det_size=(640, 640))
+        self.detection.prepare(ctx_id=0, det_thresh=0.65, det_size=(640, 640))
         self.classification = HSEmotionRecognizer(model_name='enet_b0_8_best_afew')
 
     def infer_emotion(self, frame):
@@ -92,8 +92,9 @@ class FERPresenter:
             frame_draw = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             draw = ImageDraw.Draw(frame_draw)
             emotion, _, box = self.fer.infer_emotion(frame)
-            draw.rectangle(box.tolist(), outline=(255, 0, 0), width=6)
-            draw.text(box.tolist(), emotion)
+            if box is not None:
+                draw.rectangle(box.tolist(), outline=(255, 0, 0), width=6)
+                draw.text(box.tolist(), emotion)
             fps = 1.0 / (time.time() - start_time)
             draw.text((0, 0), str(int(fps)))
             self.img_queue.put(frame_draw)
