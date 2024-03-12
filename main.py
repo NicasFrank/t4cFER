@@ -49,6 +49,7 @@ class FERView(tk.Tk):
         self.__load_frame()
 
     def __load_frame(self):
+        print(self.__presenter.img_queue.qsize())
         if not self.__presenter.img_queue.empty():
             image = ImageTk.PhotoImage(self.__presenter.img_queue.get())
             if self.panel is None:
@@ -58,7 +59,7 @@ class FERView(tk.Tk):
             else:
                 self.panel.configure(image=image)
                 self.panel.image = image
-        self.after(5, self.__load_frame)
+        self.after(10, self.__load_frame)
 
     def record_pressed(self):
         if self.__presenter.recording:
