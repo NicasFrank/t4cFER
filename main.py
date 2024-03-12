@@ -36,7 +36,7 @@ class FERModel:
 class FERView(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
-        self.presenter = FERPresenter()
+        self.__presenter = FERPresenter()
 
         self.wm_title("Tech4compFER")
         self.container = tk.Frame(self)
@@ -46,11 +46,11 @@ class FERView(tk.Tk):
         self.record_button.pack(side="bottom", fill="both", pady=10, padx=10)
         self.protocol("WM_DELETE_WINDOW", self.close_application)
 
-        self.load_frame()
+        self.__load_frame()
 
-    def load_frame(self):
-        if not self.presenter.img_queue.empty():
-            image = ImageTk.PhotoImage(self.presenter.img_queue.get())
+    def __load_frame(self):
+        if not self.__presenter.img_queue.empty():
+            image = ImageTk.PhotoImage(self.__presenter.img_queue.get())
             if self.panel is None:
                 self.panel = tk.Label(self.container, image=image)
                 self.panel.image = image
@@ -58,17 +58,17 @@ class FERView(tk.Tk):
             else:
                 self.panel.configure(image=image)
                 self.panel.image = image
-        self.after(5, self.load_frame)
+        self.after(5, self.__load_frame)
 
     def record_pressed(self):
-        if self.presenter.recording:
+        if self.__presenter.recording:
             self.record_button.config(text="Start Recording")
         else:
             self.record_button.config(text="Stop Recording")
-        self.presenter.switch_recording()
+        self.__presenter.switch_recording()
 
     def close_application(self):
-        self.presenter.release()
+        self.__presenter.release()
         self.destroy()
 
 
