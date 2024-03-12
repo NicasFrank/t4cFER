@@ -36,8 +36,7 @@ class FERModel:
 class FERView(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
-        self.img_queue = queue.Queue()
-        self.logic = FERPresenter(self.img_queue)
+        self.presenter = FERPresenter()
 
         self.wm_title("Tech4compFER")
         self.container = tk.Frame(self)
@@ -50,8 +49,8 @@ class FERView(tk.Tk):
         self.load_frame()
 
     def load_frame(self):
-        if not self.img_queue.empty():
-            image = ImageTk.PhotoImage(self.img_queue.get())
+        if not self.presenter.img_queue.empty():
+            image = ImageTk.PhotoImage(self.presenter.img_queue.get())
             if self.panel is None:
                 self.panel = tk.Label(self.container, image=image)
                 self.panel.image = image
@@ -62,36 +61,33 @@ class FERView(tk.Tk):
         self.after(5, self.load_frame)
 
     def record_pressed(self):
-        if self.logic.recording:
+        if self.presenter.recording:
             self.record_button.config(text="Start Recording")
-            self.logic.stop_recording()
         else:
             self.record_button.config(text="Stop Recording")
-            self.logic.start_recording()
+        self.presenter.switch_recording()
 
     def close_application(self):
-        self.logic.recording = not self.logic.recording
-        self.logic.worker_thread.join()
-        self.logic.vc.release()
+        self.presenter.release()
         self.destroy()
 
 
 class FERPresenter:
-    def __init__(self, img_queue):
-        self.img_queue = img_queue
+    def __init__(self):
+        self.img_queue = queue.Queue()
         self.recording = False
-        self.fer = FERModel()
-        self.vc = cv2.VideoCapture(0)
-        self.worker_thread = threading.Thread(target=self.update_frame)
+        self.model = FERModel()
+        self.__vc = cv2.VideoCapture(0)
+        self.worker_thread = threading.Thread(target=self.__update_frame)
         self.worker_thread.start()
 
-    def update_frame(self):
+    def __update_frame(self):
         while not self.recording:
             start_time = time.time()
-            _, frame = self.vc.read()
+            _, frame = self.__vc.read()
             frame_draw = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             draw = ImageDraw.Draw(frame_draw)
-            emotion, _, box = self.fer.infer_emotion(frame)
+            emotion, _, box = self.model.infer_emotion(frame)
             if box is not None:
                 draw.rectangle(box.tolist(), outline=(255, 0, 0), width=6)
                 draw.text(box.tolist(), emotion)
@@ -100,30 +96,32 @@ class FERPresenter:
             self.img_queue.put(frame_draw)
         return
 
-    def record_emotions(self):
+    def __record_emotions(self):
         with open(datetime.now().strftime("%d_%m_%Y %Hh%Mm%Ss") + ".csv", 'w', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=';')
             while self.recording:
                 start_time = time.time()
-                _, frame = self.vc.read()
-                _, emotion_values, _ = self.fer.infer_emotion(frame)
+                _, frame = self.__vc.read()
+                _, emotion_values, _ = self.model.infer_emotion(frame)
                 if emotion_values is not None:
                     writer.writerow([time.time()] + [*emotion_values])
                 elapsed_time = time.time() - start_time
                 time.sleep(max(float(0), 0.1 - elapsed_time))
             return
 
-    def start_recording(self):
-        self.recording = True
+    def switch_recording(self):
+        self.recording = not self.recording
         self.worker_thread.join()
-        self.worker_thread = threading.Thread(target=self.record_emotions)
+        if self.recording:
+            self.worker_thread = threading.Thread(target=self.__record_emotions)
+        else:
+            self.worker_thread = threading.Thread(target=self.__update_frame)
         self.worker_thread.start()
 
-    def stop_recording(self):
-        self.recording = False
+    def release(self):
+        self.recording = not self.recording
         self.worker_thread.join()
-        self.worker_thread = threading.Thread(target=self.update_frame)
-        self.worker_thread.start()
+        self.__vc.release()
 
 
 if __name__ == '__main__':
