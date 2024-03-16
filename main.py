@@ -21,16 +21,13 @@ class FERModel:
     def infer_emotion(self, frame):
         faces = self.__detection.get(frame)
         if faces:
-            return self.__get_emotions(frame, faces)
+            for face in faces:
+                box = face.bbox.astype(int)
+                x1, y1, x2, y2 = box[0:4]
+                face_img = frame[y1:y2, x1:x2, :]
+                emotion, scores = self.__classification.predict_emotions(face_img, logits=False)
+                return emotion, scores, box
         return None, None, None
-
-    def __get_emotions(self, frame, faces):
-        for face in faces:
-            box = face.bbox.astype(int)
-            x1, y1, x2, y2 = box[0:4]
-            face_img = frame[y1:y2, x1:x2, :]
-            emotion, scores = self.__classification.predict_emotions(face_img, logits=False)
-            return emotion, scores, box
 
 
 class FERView(tk.Tk):
