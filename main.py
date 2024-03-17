@@ -15,7 +15,7 @@ class FERModel:
         provider = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if allow_gpu else ['CPUExecutionProvider']
         self.__detection = FaceAnalysis(name='buffalo_sc', allowed_modules=['detection'],
                                         providers=provider)
-        self.__detection.prepare(ctx_id=0, det_thresh=0.65, det_size=(640, 480))
+        self.__detection.prepare(ctx_id=0, det_thresh=0.60, det_size=(640, 480))
         self.__classification = HSEmotionRecognizer(model_name='enet_b0_8_best_afew')
 
     def infer_emotion(self, frame):
