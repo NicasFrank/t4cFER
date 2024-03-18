@@ -46,7 +46,6 @@ class FERView(tk.Tk):
         self.__load_frame()
 
     def __load_frame(self):
-        print(self.__presenter.img_queue.qsize())
         if not self.__presenter.img_queue.empty():
             image = ImageTk.PhotoImage(self.__presenter.img_queue.get())
             if self.panel is None:
