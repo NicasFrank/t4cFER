@@ -102,7 +102,7 @@ class FERPresenter:
                 _, frame = self.__vc.read()
                 _, emotion_values, _ = self.__model.infer_emotion(frame)
                 if emotion_values is not None:
-                    writer.writerow([time.time()] + [*emotion_values])
+                    writer.writerow([start_time] + [*emotion_values])
                 elapsed_time = time.time() - start_time
                 time.sleep(max(float(0), 0.1 - elapsed_time))
             return
